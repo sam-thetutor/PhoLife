@@ -1,9 +1,11 @@
 # Pholife 📸
+![Pholife Logo](./src/assets/Screenshot%202025-02-04%20at%2018.58.34.png)
 
 Pholife is a decentralized photo storage application built on the Filecoin network that enables users to securely and privately store their precious memories in a decentralized manner.
 
 ## Features
 
+![Pholife Features](./src/assets/Screenshot%202025-02-04%20at%2018.59.00.png)
 - 🔒 Secure, encrypted photo storage
 - 🌐 Decentralized architecture using Filecoin
 - 🔐 Private access to your photos
@@ -12,6 +14,7 @@ Pholife is a decentralized photo storage application built on the Filecoin netwo
 - 📱 Cross-platform accessibility
 
 ## Technology Stack
+![Pholife Technology Stack](./src/assets/Screenshot%202025-02-04%20at%2018.59.08.png)
 
 - Frontend: React + Vite
 - Storage: Filecoin Network
@@ -20,6 +23,8 @@ Pholife is a decentralized photo storage application built on the Filecoin netwo
 - Styling: CSS
 
 ## Getting Started
+
+![Pholife Getting Started](./src/assets/Screenshot%202025-02-04%20at%2018.59.29.png)
 
 ### Prerequisites
 
@@ -53,8 +58,6 @@ cp .env.example .env
 ```bash
 npm run dev
 ```
-
-
 
 ## How It Works
 
@@ -96,6 +99,42 @@ Project Link: [https://github.com/yourusername/pholife](https://github.com/youru
 - IPFS
 - React Community
 - All contributors and supporters
+
+## Screenshots
+
+### Public Photo Upload
+![Public Photo Upload](./assets/public-photos.png)
+Upload and store your photos publicly on IPFS, with metadata stored on the blockchain.
+
+### Private Photo Storage
+![Private Photo Storage](./assets/private-photos.png)
+Securely encrypt and store private photos with password protection.
+
+### Private Folder Setup
+![Private Folder Setup](./assets/private-folder-setup.png)
+Create a password-protected private folder for your sensitive photos.
+
+### Gallery View
+![Gallery View](./assets/gallery-view.png)
+View your photos organized by time periods with support for both public and private collections.
+
+## Key Features
+- Decentralized storage using IPFS
+- Smart contract integration for metadata
+- Client-side encryption for private photos
+- Thumbnail generation for faster loading
+- Password-protected private folder
+- Organized gallery view
+- Sort by date
+- Download original encrypted files
+
+## Technologies Used
+- React
+- Ethereum / Smart Contracts
+- IPFS / Web3.Storage
+- MetaMask
+- ethers.js
+- date-fns
 
 
 
