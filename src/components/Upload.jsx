@@ -1,34 +1,29 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import PropTypes from 'prop-types'
 import FilePreview from './FilePreview'
 import UploadProgress from './UploadProgress'
+import { addPhoto } from '../utils/contract'
+import { useApp } from '../context/AppContext'
 
-const Upload = ({ account, onUploadComplete, web3Client }) => {
+const Upload = () => {
+  const { wallet, web3Client, addPhotos } = useApp()
   const [uploading, setUploading] = useState(false)
   const [files, setFiles] = useState([])
   const [progress, setProgress] = useState({})
   const [uploadSpeed, setUploadSpeed] = useState({})
-  const [errors, setErrors] = useState([])
-
-  const handleValidationError = useCallback((error) => {
-    setErrors(prev => [...prev, error])
-    setTimeout(() => {
-      setErrors(prev => prev.slice(1))
-    }, 5000)
-  }, [])
+  const [error, setError] = useState('')
 
   const handleFileChange = (event) => {
-    const selectedFiles = Array.from(event.target.files)
-    setFiles(selectedFiles)
+    setFiles(Array.from(event.target.files))
     setProgress({})
     setUploadSpeed({})
-    setErrors([])
+    setError('')
   }
 
   const updateProgress = (fileName, loaded, total, startTime) => {
     const currentTime = Date.now()
-    const timeElapsed = (currentTime - startTime) / 1000 // seconds
-    const speed = loaded / timeElapsed // bytes per second
+    const timeElapsed = (currentTime - startTime) / 1000
+    const speed = loaded / timeElapsed
     
     setProgress(prev => ({
       ...prev,
@@ -43,50 +38,48 @@ const Upload = ({ account, onUploadComplete, web3Client }) => {
 
   const uploadToFilecoin = async () => {
     if (files.length === 0) return
+    if (!wallet?.signer?.provider) {
+      setError('Please connect your wallet first')
+      return
+    }
 
     setUploading(true)
-    try {
-      if (!web3Client) {
-        throw new Error("Web3 storage not initialized")
-      }
+    setError('')
 
+    try {
       const uploadedFiles = await Promise.all(
         files.map(async (file) => {
-          try {
-            const startTime = Date.now()
-            const cid = await web3Client.uploadFile(file, {
-              onProgress: (event) => {
-                updateProgress(file.name, event.loaded, event.total, startTime)
-              }
-            })
-
-            return {
-              id: cid.toString(),
-              url: `https://${cid.toString()}.ipfs.w3s.link`,
-              name: file.name,
-              size: file.size,
-              type: file.type,
-              timestamp: new Date().toISOString()
+          const startTime = Date.now()
+          const cid = await web3Client.uploadFile(file, {
+            onProgress: (event) => {
+              updateProgress(file.name, event.loaded, event.total, startTime)
             }
-          } catch (error) {
-            console.error(`Error uploading file ${file.name}:`, error)
-            handleValidationError(`Failed to upload ${file.name}: ${error.message}`)
-            throw error
+          })
+          
+          const url = `https://${cid.toString()}.ipfs.w3s.link`
+          
+          await addPhoto(wallet.signer, url, file.name, file.size, false)
+          
+          return {
+            id: cid.toString(),
+            url,
+            name: file.name,
+            timestamp: new Date().toISOString(),
+            size: file.size,
+            isPrivate: false
           }
         })
       )
 
-      console.log("Successfully uploaded files:", uploadedFiles)
+      addPhotos(uploadedFiles)
       setFiles([])
-      onUploadComplete(uploadedFiles)
-      
-    } catch (error) {
-      console.error('Error uploading files:', error)
-      handleValidationError('Failed to upload files: ' + error.message)
-    } finally {
-      setUploading(false)
       setProgress({})
       setUploadSpeed({})
+    } catch (error) {
+      console.error('Error uploading files:', error)
+      setError(error.message || 'Failed to upload files')
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -100,13 +93,9 @@ const Upload = ({ account, onUploadComplete, web3Client }) => {
         disabled={uploading}
       />
 
-      {errors.length > 0 && (
-        <div className="error-messages">
-          {errors.map((error, index) => (
-            <div key={index} className="error-message">
-              {error}
-            </div>
-          ))}
+      {error && (
+        <div className="error-message">
+          {error}
         </div>
       )}
 
@@ -114,10 +103,7 @@ const Upload = ({ account, onUploadComplete, web3Client }) => {
         <div className="previews-container">
           {Array.from(files).map((file, index) => (
             <div key={index} className="preview-item">
-              <FilePreview
-                file={file}
-                onValidationError={handleValidationError}
-              />
+              <FilePreview file={file} />
               {progress[file.name] !== undefined && (
                 <UploadProgress
                   file={file}
@@ -143,6 +129,7 @@ const Upload = ({ account, onUploadComplete, web3Client }) => {
 
 Upload.propTypes = {
   account: PropTypes.string.isRequired,
+  signer: PropTypes.object,
   onUploadComplete: PropTypes.func.isRequired,
   web3Client: PropTypes.object.isRequired
 }

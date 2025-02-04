@@ -74,6 +74,13 @@ header {
   font-family: monospace;
 }
 
+.upload-containers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
 .upload-container {
   display: flex;
   flex-direction: column;
@@ -81,6 +88,16 @@ header {
   padding: 2rem;
   background: #1a1a1a;
   border-radius: 8px;
+  height: 100%;
+  margin-bottom: 0;
+}
+
+.private-folder {
+  height: 100%;
+  margin-bottom: 0;
+  background: #1a1a1a;
+  border-radius: 8px;
+  padding: 2rem;
 }
 
 .selected-files {
@@ -448,4 +465,35 @@ header {
   color: #888;
   font-size: 0.9rem;
   line-height: 1.5;
+}
+
+/* Add responsive layout */
+@media (max-width: 768px) {
+  .upload-containers {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gallery-toggles {
+  display: flex;
+  gap: 1rem;
+}
+
+.toggle-button {
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  background: #1a1a1a;
+  color: white;
+  border: 1px solid #333;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-button.active {
+  background: #646cff;
+  border-color: #646cff;
+}
+
+.toggle-button:hover {
+  border-color: #646cff;
 }

@@ -1,26 +1,12 @@
-import { useState } from 'react'
 import PropTypes from 'prop-types'
 
-const ConnectWallet = ({ account, setAccount }) => {
-  const [connecting, setConnecting] = useState(false)
-
-  const connectWallet = async () => {
+const ConnectWallet = ({ account, onConnect, onDisconnect }) => {
+  const handleConnect = async () => {
     try {
-      setConnecting(true)
-      const { ethereum } = window
-      if (!ethereum) {
-        alert('Please install MetaMask!')
-        return
-      }
-
-      const accounts = await ethereum.request({
-        method: 'eth_requestAccounts'
-      })
-      setAccount(accounts[0])
+      await onConnect()
     } catch (error) {
-      console.error('Error connecting wallet:', error)
-    } finally {
-      setConnecting(false)
+      console.error('Failed to connect:', error)
+      alert(error.message)
     }
   }
 
@@ -28,15 +14,12 @@ const ConnectWallet = ({ account, setAccount }) => {
     <div className="wallet-container">
       {account ? (
         <div className="account-info">
-          {`${account.slice(0, 6)}...${account.slice(-4)}`}
+          <span>{`${account.slice(0, 6)}...${account.slice(-4)}`}</span>
+          <button onClick={onDisconnect}>Disconnect</button>
         </div>
       ) : (
-        <button 
-          onClick={connectWallet} 
-          disabled={connecting}
-          className="connect-button"
-        >
-          {connecting ? 'Connecting...' : 'Connect Wallet'}
+        <button onClick={handleConnect}>
+          Connect Wallet
         </button>
       )}
     </div>
@@ -45,7 +28,8 @@ const ConnectWallet = ({ account, setAccount }) => {
 
 ConnectWallet.propTypes = {
   account: PropTypes.string,
-  setAccount: PropTypes.func.isRequired
+  onConnect: PropTypes.func.isRequired,
+  onDisconnect: PropTypes.func.isRequired
 }
 
 export default ConnectWallet 

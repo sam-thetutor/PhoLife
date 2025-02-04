@@ -1,69 +1,49 @@
-import { useState, useEffect } from 'react'
-import PropTypes from 'prop-types'
+import { useState } from 'react'
 import { AiFillLock, AiFillUnlock } from 'react-icons/ai'
-import { encrypt, decrypt, hashPassword } from '../utils/encryption'
+import { encrypt } from '../utils/encryption'
+import { addPhoto } from '../utils/contract'
+import { useApp } from '../context/AppContext'
 
-const PrivateFolder = ({ web3Client, onUploadComplete }) => {
-  const [isUnlocked, setIsUnlocked] = useState(false)
-  const [isSetup, setIsSetup] = useState(false)
+const PrivateFolder = () => {
+  const { 
+    wallet,
+    web3Client,
+    addPhotos,
+    isPrivateFolderSetup,
+    isSettingUpFolder,
+    privateFolderError,
+    setupPrivateFolder,
+    isPrivateFolderUnlocked,
+    verifyPrivateFolderAccess,
+    lockPrivateFolder
+  } = useApp()
+
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [files, setFiles] = useState([])
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    // Check if password has been set up
-    const hashedPassword = localStorage.getItem('pholife_private_folder_hash')
-    setIsSetup(!!hashedPassword)
-  }, [])
-
   const handleSetupPassword = async () => {
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
-      return
-    }
-
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       return
     }
 
     try {
-      // Hash password for storage
-      const hashedPassword = await hashPassword(password)
-      localStorage.setItem('pholife_private_folder_hash', hashedPassword)
-      
-      // Create an encryption test to verify password later
-      const testData = new TextEncoder().encode('test')
-      const encryptedTest = await encrypt(testData, password)
-      localStorage.setItem('pholife_private_folder_test', JSON.stringify(Array.from(encryptedTest)))
-      
-      setIsSetup(true)
-      setIsUnlocked(true)
+      await setupPrivateFolder(password)
       setError('')
     } catch (error) {
-      console.error('Error setting up password:', error)
-      setError('Failed to set up password')
+      setError(error.message)
     }
   }
 
   const handleUnlock = async () => {
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters')
-      return
-    }
-
     try {
-      // Verify password by attempting to decrypt test data
-      const encryptedTest = new Uint8Array(JSON.parse(localStorage.getItem('pholife_private_folder_test')))
-      await decrypt(encryptedTest, password)
-      
-      setIsUnlocked(true)
+      await verifyPrivateFolderAccess(password)
       setError('')
     } catch (error) {
-      console.error('Error unlocking folder:', error)
-      setError('Incorrect password')
+      setError(error.message)
     }
   }
 
@@ -72,25 +52,31 @@ const PrivateFolder = ({ web3Client, onUploadComplete }) => {
   }
 
   const uploadPrivateFiles = async () => {
+    if (!wallet?.signer?.provider) {
+      setError('Please connect your wallet first')
+      return
+    }
+
     if (!password || !files.length) return
 
     setUploading(true)
     try {
       const uploadedFiles = await Promise.all(
         files.map(async (file) => {
-          // Encrypt file data
           const encryptedData = await encrypt(await file.arrayBuffer(), password)
           const encryptedBlob = new Blob([encryptedData])
           const encryptedFile = new File([encryptedBlob], file.name, {
             type: 'application/encrypted'
           })
 
-          // Upload encrypted file
           const cid = await web3Client.uploadFile(encryptedFile)
+          const url = `https://${cid.toString()}.ipfs.w3s.link`
+          
+          await addPhoto(wallet.signer, url, file.name, file.size, true)
           
           return {
             id: cid.toString(),
-            url: `https://${cid.toString()}.ipfs.w3s.link`,
+            url,
             name: file.name,
             timestamp: new Date().toISOString(),
             isPrivate: true,
@@ -99,7 +85,7 @@ const PrivateFolder = ({ web3Client, onUploadComplete }) => {
         })
       )
 
-      onUploadComplete(uploadedFiles)
+      addPhotos(uploadedFiles)
       setFiles([])
     } catch (error) {
       console.error('Error uploading private files:', error)
@@ -109,7 +95,19 @@ const PrivateFolder = ({ web3Client, onUploadComplete }) => {
     }
   }
 
-  if (!isSetup) {
+  if (!isPrivateFolderSetup) {
+    if (!wallet?.signer?.provider) {
+      return (
+        <div className="private-folder setup">
+          <AiFillLock size={24} />
+          <h3>Set Up Private Folder</h3>
+          <p className="setup-message">
+            Please connect your wallet to set up the private folder
+          </p>
+        </div>
+      )
+    }
+
     return (
       <div className="private-folder setup">
         <AiFillLock size={24} />
@@ -127,9 +125,18 @@ const PrivateFolder = ({ web3Client, onUploadComplete }) => {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
           />
-          <button onClick={handleSetupPassword}>Set Password</button>
+          <button 
+            onClick={handleSetupPassword}
+            disabled={isSettingUpFolder}
+          >
+            {isSettingUpFolder ? 'Setting Up...' : 'Set Password'}
+          </button>
         </div>
-        {error && <div className="error-message">{error}</div>}
+        {(error || privateFolderError) && (
+          <div className="error-message">
+            {error || privateFolderError.message}
+          </div>
+        )}
         <p className="password-hint">
           Password must be at least 6 characters long.
           <br />
@@ -139,7 +146,7 @@ const PrivateFolder = ({ web3Client, onUploadComplete }) => {
     )
   }
 
-  if (!isUnlocked) {
+  if (!isPrivateFolderUnlocked && isPrivateFolderSetup) {
     return (
       <div className="private-folder locked">
         <AiFillLock size={24} />
@@ -168,7 +175,7 @@ const PrivateFolder = ({ web3Client, onUploadComplete }) => {
         <button 
           className="lock-button"
           onClick={() => {
-            setIsUnlocked(false)
+            lockPrivateFolder()
             setPassword('')
           }}
         >
@@ -199,11 +206,6 @@ const PrivateFolder = ({ web3Client, onUploadComplete }) => {
       {error && <div className="error-message">{error}</div>}
     </div>
   )
-}
-
-PrivateFolder.propTypes = {
-  web3Client: PropTypes.object.isRequired,
-  onUploadComplete: PropTypes.func.isRequired
 }
 
 export default PrivateFolder 
