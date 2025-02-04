@@ -63,28 +63,49 @@ const PrivateFolder = () => {
     try {
       const uploadedFiles = await Promise.all(
         files.map(async (file) => {
+          // Create a thumbnail for preview
+          const thumbnail = await createImageThumbnail(file)
+          
+          // Encrypt the original file
           const encryptedData = await encrypt(await file.arrayBuffer(), password)
           const encryptedBlob = new Blob([encryptedData])
           const encryptedFile = new File([encryptedBlob], file.name, {
             type: 'application/encrypted'
           })
 
-          const cid = await web3Client.uploadFile(encryptedFile)
-          const url = `https://${cid.toString()}.ipfs.w3s.link`
+          // Upload both encrypted file and thumbnail
+          const [encryptedCid, thumbnailCid] = await Promise.all([
+            web3Client.uploadFile(encryptedFile),
+            web3Client.uploadFile(thumbnail)
+          ])
+
+          const urls = {
+            encrypted: `https://${encryptedCid.toString()}.ipfs.w3s.link`,
+            thumbnail: `https://${thumbnailCid.toString()}.ipfs.w3s.link`
+          }
           
-          await addPhoto(wallet.signer, url, file.name, file.size, true)
+          console.log('Adding private photo with isPrivate=true')
+          // Store URLs as stringified JSON in the contract
+          await addPhoto(
+            wallet.signer, 
+            JSON.stringify(urls), 
+            file.name, 
+            file.size, 
+            true
+          )
           
           return {
-            id: cid.toString(),
-            url,
+            id: encryptedCid.toString(),
+            url: JSON.stringify(urls), // Store the stringified URLs
             name: file.name,
             timestamp: new Date().toISOString(),
-            isPrivate: true,
-            size: file.size
+            size: file.size,
+            isPrivate: true
           }
         })
       )
 
+      console.log('Uploaded private files:', uploadedFiles)
       addPhotos(uploadedFiles)
       setFiles([])
     } catch (error) {
@@ -93,6 +114,49 @@ const PrivateFolder = () => {
     } finally {
       setUploading(false)
     }
+  }
+
+  // Helper function to create thumbnail
+  const createImageThumbnail = async (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d')
+          
+          // Set thumbnail size
+          const maxSize = 300
+          let width = img.width
+          let height = img.height
+          
+          if (width > height) {
+            if (width > maxSize) {
+              height *= maxSize / width
+              width = maxSize
+            }
+          } else {
+            if (height > maxSize) {
+              width *= maxSize / height
+              height = maxSize
+            }
+          }
+          
+          canvas.width = width
+          canvas.height = height
+          
+          ctx.drawImage(img, 0, 0, width, height)
+          
+          // Convert to blob
+          canvas.toBlob((blob) => {
+            resolve(new File([blob], `${file.name}-thumb.jpg`, { type: 'image/jpeg' }))
+          }, 'image/jpeg', 0.7)
+        }
+        img.src = e.target.result
+      }
+      reader.readAsDataURL(file)
+    })
   }
 
   if (!isPrivateFolderSetup) {

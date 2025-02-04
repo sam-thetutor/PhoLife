@@ -29,6 +29,7 @@ export function AppProvider({ children }) {
   const [isSettingUpFolder, setIsSettingUpFolder] = useState(false)
   const [privateFolderError, setPrivateFolderError] = useState(null)
   const [isPrivateFolderUnlocked, setIsPrivateFolderUnlocked] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState(null)
 
   // Initialize web3.storage
   useEffect(() => {
@@ -47,13 +48,72 @@ export function AppProvider({ children }) {
     initWeb3Storage()
   }, [])
 
-  // Load photos when wallet connects
+  // Check for existing connection on mount
+  useEffect(() => {
+    const checkConnection = async () => {
+      if (window.ethereum) {
+        try {
+          // Get connected accounts
+          const accounts = await window.ethereum.request({ 
+            method: 'eth_accounts' 
+          })
+          
+          if (accounts.length > 0) {
+            console.log('Found existing connection:', accounts[0])
+            // Create provider and signer
+            const provider = new ethers.BrowserProvider(window.ethereum)
+            const signer = await provider.getSigner()
+            
+            // Set wallet state
+            setWallet({
+              account: accounts[0],
+              signer
+            })
+          }
+        } catch (error) {
+          console.error('Error checking existing connection:', error)
+        }
+      }
+    }
+
+    checkConnection()
+  }, [])
+
+  // Load photos and check private folder when wallet changes
   useEffect(() => {
     if (wallet.signer) {
       loadPhotos()
       checkPrivateFolderSetup()
     }
   }, [wallet.signer])
+
+  // Listen for account/chain changes
+  useEffect(() => {
+    if (window.ethereum) {
+      const handleAccountsChanged = (accounts) => {
+        if (accounts.length === 0) {
+          // User disconnected
+          disconnectWallet()
+        } else if (accounts[0] !== wallet.account) {
+          // Account changed, reconnect with new account
+          connectWallet()
+        }
+      }
+
+      const handleChainChanged = () => {
+        // Reload the page on chain change as recommended by MetaMask
+        window.location.reload()
+      }
+
+      window.ethereum.on('accountsChanged', handleAccountsChanged)
+      window.ethereum.on('chainChanged', handleChainChanged)
+
+      return () => {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged)
+        window.ethereum.removeListener('chainChanged', handleChainChanged)
+      }
+    }
+  }, [wallet.account])
 
   // Wallet functions
   const connectWallet = async () => {
@@ -73,9 +133,7 @@ export function AppProvider({ children }) {
       console.log('accounts', accounts)
       
       if (accounts.length > 0) {
-        // Create provider using window.ethereum
         const provider = new ethers.BrowserProvider(window.ethereum)
-        // Get signer
         const signer = await provider.getSigner()
         
         setWallet({
@@ -97,6 +155,7 @@ export function AppProvider({ children }) {
   const disconnectWallet = () => {
     setWallet({ account: null, signer: null })
     setPhotos([])
+    setIsPrivateFolderUnlocked(false) // Lock private folder on disconnect
   }
 
   // Photos functions
@@ -163,6 +222,7 @@ export function AppProvider({ children }) {
       }
 
       setIsPrivateFolderUnlocked(true)
+      setCurrentPassword(password)
       return true
     } catch (error) {
       console.error('Error verifying password:', error)
@@ -172,6 +232,7 @@ export function AppProvider({ children }) {
 
   const lockPrivateFolder = () => {
     setIsPrivateFolderUnlocked(false)
+    setCurrentPassword(null)
   }
 
   const value = {
@@ -201,6 +262,7 @@ export function AppProvider({ children }) {
     isPrivateFolderUnlocked,
     verifyPrivateFolderAccess,
     lockPrivateFolder,
+    currentPassword,
   }
 
   return (

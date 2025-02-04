@@ -14,25 +14,6 @@ function AppContent() {
     disconnectWallet,
   } = useApp()
 
-  useEffect(() => {
-    if (window.ethereum) {
-      window.ethereum.on('chainChanged', () => {
-        disconnectWallet()
-        window.location.reload()
-      })
-      window.ethereum.on('accountsChanged', () => {
-        disconnectWallet()
-        window.location.reload()
-      })
-    }
-    return () => {
-      if (window.ethereum) {
-        window.ethereum.removeListener('chainChanged', () => {})
-        window.ethereum.removeListener('accountsChanged', () => {})
-      }
-    }
-  }, [disconnectWallet])
-
   if (isInitializing) {
     return <div className="loading">Initializing storage...</div>
   }

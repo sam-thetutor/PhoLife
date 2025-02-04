@@ -1,7 +1,7 @@
 import { ethers } from 'ethers'
 import PhotoStorageABI from '../contracts/PhotoStorage.json'
 
-const CONTRACT_ADDRESS = '0x3380f40F0c8C76eDD1BA48A9b860B5a4059B45E2'
+const CONTRACT_ADDRESS = '0x0246A2f0CDf19bFf7C4f9EBa0fD72dD947A11D48'
 
 export const getContract = (signer) => {
   // Create contract instance directly with ABI
@@ -51,13 +51,18 @@ export const getPhotos = async (signer) => {
   try {
     const contract = getContract(signer)
     const photos = await contract.getPhotos()
-    return photos.map(photo => ({
+    console.log('Raw photos from contract:', photos)
+    
+    const mappedPhotos = photos.map(photo => ({
       url: photo.url,
       name: photo.name,
-      timestamp: new Date(Number(photo.timestamp) * 1000).toISOString(), // Convert BigInt to Number
-      size: Number(photo.size), // Convert BigInt to Number
+      timestamp: new Date(Number(photo.timestamp) * 1000).toISOString(),
+      size: Number(photo.size),
       isPrivate: photo.isPrivate
     }))
+    console.log('Mapped photos:', mappedPhotos)
+    
+    return mappedPhotos
   } catch (error) {
     console.error('Error getting photos:', error)
     throw error
