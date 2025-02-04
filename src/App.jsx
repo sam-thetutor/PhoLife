@@ -4,11 +4,44 @@ import './App.css'
 import Gallery from './components/Gallery'
 import Upload from './components/Upload'
 import ConnectWallet from './components/ConnectWallet'
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
+import { create } from '@web3-storage/w3up-client'
 
-function App() {
+const VITE_SPACE_LOGIN="did:key:z6MkqXuQNBGX3KJuvN5rRZjerfLvtBuUDWXGNiEH8wPP8cBq"
+const VITE_WEB3STORAGE_EMAIL="smartskillsweb3@gmail.com"
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: Infinity,
+    },
+  },
+})
+
+// Initialize web3.storage client
+const initializeWeb3Storage = async () => {
+  try {
+    const web3Client = await create()
+    await web3Client.login(VITE_WEB3STORAGE_EMAIL)
+    await web3Client.setCurrentSpace(VITE_SPACE_LOGIN)
+    return web3Client
+  } catch (error) {
+    console.error("Error initializing web3.storage:", error)
+    throw error
+  }
+}
+
+function AppContent() {
   const [account, setAccount] = useState(null)
   const [images, setImages] = useState([])
   const [loading, setLoading] = useState(false)
+
+  // Initialize web3.storage using React Query
+  const { data: web3Client, isLoading: isInitializing } = useQuery({
+    queryKey: ['web3Storage'],
+    queryFn: initializeWeb3Storage,
+    retry: 2,
+  })
 
   const checkWalletConnection = async () => {
     try {
@@ -31,18 +64,30 @@ function App() {
   const loadImages = async () => {
     setLoading(true)
     try {
-      // TODO: Implement loading images from Filecoin
-      // This is where you'll integrate with your smart contract
-      setImages([])
+      const savedImages = localStorage.getItem('uploadedImages')
+      if (savedImages) {
+        setImages(JSON.parse(savedImages))
+      }
     } catch (error) {
       console.error('Error loading images:', error)
     }
     setLoading(false)
   }
 
+  const handleUploadComplete = (uploadedFiles) => {
+    console.log("uploadedFiles:", uploadedFiles)
+    const newImages = [...images, ...uploadedFiles]
+    setImages(newImages)
+    localStorage.setItem('uploadedImages', JSON.stringify(newImages))
+  }
+
   useEffect(() => {
     checkWalletConnection()
   }, [])
+
+  if (isInitializing) {
+    return <div className="loading">Initializing web3.storage...</div>
+  }
 
   return (
     <div className="app-container">
@@ -55,7 +100,8 @@ function App() {
         <>
           <Upload 
             account={account} 
-            onUploadComplete={loadImages}
+            onUploadComplete={handleUploadComplete}
+            web3Client={web3Client}
           />
           <Gallery 
             images={images} 
@@ -68,6 +114,14 @@ function App() {
         </div>
       )}
     </div>
+  )
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppContent />
+    </QueryClientProvider>
   )
 }
 
