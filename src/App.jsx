@@ -6,6 +6,7 @@ import Upload from './components/Upload'
 import ConnectWallet from './components/ConnectWallet'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { create } from '@web3-storage/w3up-client'
+import PrivateFolder from './components/PrivateFolder'
 
 const VITE_SPACE_LOGIN="did:key:z6MkqXuQNBGX3KJuvN5rRZjerfLvtBuUDWXGNiEH8wPP8cBq"
 const VITE_WEB3STORAGE_EMAIL="smartskillsweb3@gmail.com"
@@ -102,6 +103,10 @@ function AppContent() {
             account={account} 
             onUploadComplete={handleUploadComplete}
             web3Client={web3Client}
+          />
+          <PrivateFolder
+            web3Client={web3Client}
+            onUploadComplete={handleUploadComplete}
           />
           <Gallery 
             images={images} 
